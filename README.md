@@ -26,6 +26,10 @@
 
 代价是**必须有人记得去跑**；收益是**跑的人不需要懂这套坑** —— 命令、判据、失败处置都在仓里。
 
+> **2026-11-02 后续**：平台定时任务已恢复（每周一 00:00），但**只做一件事 —— 调 `bash scripts/run.sh --yes`**。
+> 调度器从「推进流程」退化为「按一下按钮」，判断仍全部在脚本里（提示词见 [`automation/prompt.md`](automation/prompt.md)）。
+> 换句话说：**定时解决的是「有人记得跑」，不是「有人会判断」** —— 这两件事可以只要前者。
+
 ## 这个仓解决什么问题
 
 上游 `deepseek-ai/deepseek-harness` 几乎每个版本只发 **GitHub 自动生成的源码归档**（`assets: 0`），
@@ -85,7 +89,7 @@ scripts/check_new.sh     只读检测：本地 tag 集 vs releases?per_page=N �
 scripts/verify_tag.sh    硬指标唯一实现（条目数 / 文件数 / 符号链接 / 失效链接 / 归档完整性）
 docs/RUNBOOK.md          人工运行手册（失败处置 + 手工等价命令）
 docs/LESSONS.md          踩坑台账（11 条，每条附日期与实证）
-automation/prompt.md     【可选】仍要接平台定时任务时的提示词（与手动入口同源）
+automation/prompt.md     平台定时任务提示词（现役：每周一 00:00 只调 run.sh；与手动入口同源）
 ```
 
 ## 一次运行的五步（`run.sh` 内部顺序）

@@ -1,7 +1,8 @@
 # RUNBOOK · 手动运行一次完整流水线
 
 > 活文档，随脚本同步维护。凡与 `scripts/verify_tag.sh` 冲突，**以脚本为准**（判据只有一份实现）。
-> 面向**人工触发**：不需要定时任务，也不需要 AI 在旁边判断下一步。
+> 面向**人工触发**：一条命令跑完全程，不需要 AI 在旁边判断下一步。
+> 平台定时任务（每周一 00:00）也调同一入口 `scripts/run.sh`，调度器只负责「到点按一下」，不承载任何判断。
 
 适用对象：`deepseek-ai/deepseek-harness`（改 `config/target.env` 可换仓）。
 环境：Windows + Git Bash（`curl` / `tar` / `unzip` / `find` 随 Git for Windows 安装）。
