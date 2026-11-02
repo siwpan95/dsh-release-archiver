@@ -200,11 +200,14 @@ EOF
     bash "$HERE/archive_one.sh" "$t" "$ROOT" 2>&1 | tee "$aout"
     local arc=${PIPESTATUS[0]}
     local res; res="$(grep '^RESULT ' "$aout" | tail -1)"
-    local st="FAIL" f="-" l="-" e="-" b="-"
+    local st="FAIL" f="-" l="-" e="-" b="-" v=""
     if [ -n "$res" ]; then
-      st="$(field "$res" status)"; f="$(field "$res" files)"; l="$(field "$res" symlinks)"
-      e="$(field "$res" entries)"; b="$(field "$res" broken)"
-      [ -n "$st" ] || st="FAIL"
+      # 缺字段时保留占位符（失败路径的 RESULT 不含 files/entries，别让默认值被空串覆盖）
+      v="$(field "$res" status)";    [ -n "$v" ] && st="$v"
+      v="$(field "$res" files)";     [ -n "$v" ] && f="$v"
+      v="$(field "$res" symlinks)";  [ -n "$v" ] && l="$v"
+      v="$(field "$res" entries)";   [ -n "$v" ] && e="$v"
+      v="$(field "$res" broken)";    [ -n "$v" ] && b="$v"
     fi
     # 退出码与 RESULT 必须同时为成功，避免「打印 PASS 但退出非 0」被漏掉
     if [ "$arc" = 0 ] && [ "$st" = PASS ]; then
@@ -223,13 +226,15 @@ EOF
   echo "[4/5] 汇总"
   printf '%-26s %12s %12s %16s %7s %s\n' "TAG" "ZIP_BYTES" "TGZ_BYTES" "ITEMS" "BROKEN" "STATUS"
   while IFS='|' read -r t zb tb f l e b st; do
-    printf '%-26s %12s %12s %16s %7s %s\n' "$t" "$zb" "$tb" "${f}+${l}=${e}" "$b" "$st"
+    local items="${f}+${l}=${e}"
+    [ "$f" = "-" ] && items="-"
+    printf '%-26s %12s %12s %16s %7s %s\n' "$t" "$zb" "$tb" "$items" "$b" "$st"
   done < "$results"
 
   echo
-  echo "解压目录："
-  while IFS='|' read -r t _; do
-    echo "  $ROOT/extracted/${PROJ}-${t}"
+  echo "解压目录（仅 PASS）："
+  while IFS='|' read -r t _zb _tb _f _l _e _b st; do
+    [ "$st" = PASS ] && echo "  $ROOT/extracted/${PROJ}-${t}"
   done < "$results"
 
   echo

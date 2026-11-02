@@ -129,7 +129,7 @@ automation/prompt.md     【可选】仍要接平台定时任务时的提示词�
 |---|---|
 | 来源 | 本工作区自建技能 `github-release-source-archive-download`（`~/.workbuddy/skills/`），`agent_created: true` |
 | 许可 | MIT（本工作区自有产物，与 allin 铁律 0 一致） |
-| 借用范围 | `scripts/dl_one.sh` **逐字沿用**该技能的下载脚本（仅补来源注记）；`docs/LESSONS.md` 的坑位来自该技能 SKILL.md 与本仓 2026-10-29 / 10-30 / 11-02 三次实跑记录 |
+| 借用范围 | `scripts/dl_one.sh` **下载逻辑原样保留**，仅把临时目录解析改为 `lib.sh::tmp_root()`（Windows 的 `TMPDIR` 是盘符形式，直接拼给 `tar`/`curl` 会失效，见 LESSONS 第 10 条）；`docs/LESSONS.md` 的坑位来自该技能 SKILL.md 与本仓 2026-10-29 / 10-30 / 11-02 三次实跑记录 |
 | 不入仓声明 | **归档本体不入库**：`*-source.zip` / `*-source.tar.gz` 与 `extracted/` 一律由 `.gitignore` 挡在库外（仓位卫生 H4 亦禁止提交压缩包） |
 
 ## 许可

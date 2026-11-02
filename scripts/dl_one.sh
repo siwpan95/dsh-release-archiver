@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Download one GitHub release source archive (.zip or .tar.gz) reliably in this sandbox.
 #
-# 来源记账：本文件逐字沿用本工作区技能 `github-release-source-archive-download`
+# 来源记账：本文件沿用本工作区技能 `github-release-source-archive-download`
 #   （~/.workbuddy/skills/github-release-source-archive-download/scripts/dl_one.sh，
-#    该技能 agent_created: true）。许可 MIT；借用范围＝原样复制，仅在本注释块追加来源。
-#   见 README §借鉴记账。
+#    该技能 agent_created: true）。许可 MIT；借用范围＝下载逻辑原样保留，
+#    **仅改临时目录解析**（改用 lib.sh::tmp_root()，见 docs/LESSONS.md 第 10 条：
+#    Windows 的 TMPDIR 是盘符形式，直接拼给 tar/curl 会失效）。见 README §借鉴记账。
 #
 # Usage:
 #   bash dl_one.sh <owner>/<repo> <TAG> <DEST_DIR> <zip|tar.gz>
@@ -17,11 +18,16 @@
 #   - idempotent: skips if a valid file already exists.
 set -u
 
+HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib.sh
+. "$HERE/lib.sh"
+
 REPO="$1"        # e.g. deepseek-ai/deepseek-harness
 TAG="$2"         # e.g. dsh-v0.2.0-rc.2  (mind repo-specific prefixes!)
 DST="$3"         # e.g. <归档根>
 EXT="$4"         # zip | tar.gz
-DLDIR="${TMPDIR:-/tmp}/_ghd"
+TS="$(tmp_root)"
+DLDIR="$TS/_ghd"
 LOG="$DLDIR/dl_${TAG}_${EXT}.log"
 mkdir -p "$DST" "$DLDIR"
 : > "$LOG"
@@ -32,9 +38,9 @@ final="$DST/${TAG}-source.$EXT"
 echo "downloading $TAG source.$EXT -> $DST" >> "$LOG"
 
 if [ -s "$final" ]; then
-  cp "$final" "/tmp/_pre.$EXT"
-  if   [ "$EXT" = "zip" ]    && unzip -tq "/tmp/_pre.zip"    >/dev/null 2>&1; then echo "SKIP already valid" >> "$LOG"; echo "DONE" >> "$LOG"; exit 0
-  elif [ "$EXT" = "tar.gz" ] && tar -tzf "/tmp/_pre.tar.gz"  >/dev/null 2>&1; then echo "SKIP already valid" >> "$LOG"; echo "DONE" >> "$LOG"; exit 0
+  cp "$final" "$TS/_pre.$EXT"
+  if   [ "$EXT" = "zip" ]    && unzip -tq "$TS/_pre.zip"    >/dev/null 2>&1; then echo "SKIP already valid" >> "$LOG"; echo "DONE" >> "$LOG"; exit 0
+  elif [ "$EXT" = "tar.gz" ] && tar -tzf "$TS/_pre.tar.gz"  >/dev/null 2>&1; then echo "SKIP already valid" >> "$LOG"; echo "DONE" >> "$LOG"; exit 0
   fi
 fi
 
@@ -62,9 +68,9 @@ for attempt in $(seq 1 5); do
          -o "$tmp" "$url" && [ -s "$tmp" ]; then
       sz=$(wc -c <"$tmp")
       echo "  got $sz bytes, validating..." >> "$LOG"
-      cp "$tmp" "/tmp/_ck.$EXT"
-      if   [ "$EXT" = "zip" ]    && unzip -tq "/tmp/_ck.zip"   >/dev/null 2>&1; then ok=1
-      elif [ "$EXT" = "tar.gz" ] && tar -tzf "/tmp/_ck.tar.gz" >/dev/null 2>&1; then ok=1
+      cp "$tmp" "$TS/_ck.$EXT"
+      if   [ "$EXT" = "zip" ]    && unzip -tq "$TS/_ck.zip"   >/dev/null 2>&1; then ok=1
+      elif [ "$EXT" = "tar.gz" ] && tar -tzf "$TS/_ck.tar.gz" >/dev/null 2>&1; then ok=1
       else ok=0; fi
       if [ "$ok" = 1 ]; then
         mv -f "$tmp" "$final"
@@ -73,7 +79,8 @@ for attempt in $(seq 1 5); do
         echo "  INVALID (truncated) size=$sz" >> "$LOG"
       fi
     else
-      echo "  curl FAIL $(wc -c <"$tmp" 2>/dev/null)" >> "$LOG"
+      got=0; [ -f "$tmp" ] && got=$(wc -c <"$tmp" 2>/dev/null || echo 0)
+      echo "  curl FAIL bytes=$got" >> "$LOG"
     fi
   done
 done
