@@ -1,0 +1,16 @@
+# 归档本体不入库（源码包由流水线下载到仓外归档根，见 config/target.env）
+*-source.zip
+*-source.tar.gz
+extracted/
+
+# 运行日志与临时产物
+*.log
+_dshv.*
+tmp/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,5 @@
+# 行尾纪律：shell 脚本必须 LF，否则 Git Bash 会按 CRLF 解释并报 `\r: command not found`
+* text=auto
+*.sh text eol=lf
+*.env text eol=lf
+LICENSE text eol=lf
