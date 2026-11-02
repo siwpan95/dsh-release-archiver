@@ -13,8 +13,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh
 . "$HERE/lib.sh"
-# shellcheck source=../config/target.env
-. "$HERE/../config/target.env"
+load_env "$HERE"
 
 TAG="${1:-}"
 ROOT="${2:-${DSH_ARCHIVE_ROOT:-}}"

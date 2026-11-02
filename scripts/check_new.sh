@@ -2,7 +2,7 @@
 # 只读检测：本地归档缺哪些远端 release tag。
 #
 # 用法:
-#   bash scripts/weekly_check.sh
+#   bash scripts/check_new.sh
 #
 # 输出（可直接粘进汇报）:
 #   REPO=<owner>/<repo>
@@ -12,13 +12,15 @@
 #
 # 退出码: 0 正常（无论有无新增）/ 2 用法或环境问题 / 3 网络或 API 失败
 # 纪律：本脚本**只读**，不下载、不删除、不改归档根任何内容。
+#
+# 名字里没有 "weekly"（2026-11-02 从 weekly_check.sh 改名）：节奏由人决定，
+# 脚本只负责回答「现在缺哪些」，不预设周期。
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh
 . "$HERE/lib.sh"
-# shellcheck source=../config/target.env
-. "$HERE/../config/target.env"
+load_env "$HERE"
 
 ROOT="${DSH_ARCHIVE_ROOT:-}"
 if [ -z "$ROOT" ]; then

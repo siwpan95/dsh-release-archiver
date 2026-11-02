@@ -8,6 +8,9 @@ extracted/
 _dshv.*
 tmp/
 
+# 本机私有配置（归档根等带盘符路径），由 local.env.example 复制而来
+config/local.env
+
 # 编辑器 / 系统
 .vscode/
 .idea/

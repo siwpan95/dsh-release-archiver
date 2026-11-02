@@ -3,12 +3,28 @@
 ## 仓库角色定位（投资组合分级 ②）
 
 > 本仓在 siwpan 投资组合中定级为 **② 精选旗舰/保留**，领域 **工具链/自动化**，定位 **发布归档**。
-> **角色**：把「每周检测上游 release → 双格式源码归档 → 完整性校验 → 解压复核」固化为可版本化的脚本与判据。
+> **角色**：把「按需检测上游 release → 双格式源码归档 → 完整性校验 → 解压复核」固化为**一条命令**，人可独立跑完。
 > **维护策略**：② 保留 —— 维持但不扩张；脚本参数化，换目标仓只改 `config/target.env`，不改代码。
 > 投资组合统一分级索引（多机可查）：[组合分级决策索引 · allin 事实源](https://gitee.com/siwpan/allin/blob/master/docs/事实源/组合分级决策索引.md)。
 
-把一个**已经在无人值守跑着**的自动化流程，从「会话里的临时命令 + 记忆里的口头判据」变成**可复核的仓**：
-判据写在脚本里、坑写在台账里、提示词写在 `automation/prompt.md` 里。
+把一条原本依赖平台定时任务 + AI 编排的流程，变成**独立项目**：判据写在脚本里、坑写在台账里、
+入口只有一条命令 —— **不需要定时器，也不需要 AI 在旁边判断下一步做什么**。
+
+## 为什么是手动触发（2026-11-02 定调）
+
+原先是「每周自动跑」，因为那时它活在 WorkBuddy 的定时任务里：调度由平台推进，异常由 AI 现场判断。
+一旦独立成仓，这两个前提都不成立 —— 人不在场时没人推进，AI 不在场时没人解读输出。
+所以触发方式改为**人工按需**，并把「原来靠 AI 做的判断」全部下沉进脚本：
+
+| 原来靠 AI / 平台 | 现在由脚本承担 |
+|---|---|
+| 到点触发 | 人运行 `run.sh`（Windows 双击 `run.cmd`） |
+| 判断「有没有新增」 | `check_new.sh` 求差集，**API 失败明确 exit 3，不冒充「无新增」** |
+| 决定下一步做什么 | `run.sh` 固定五步：检测 → 下载 → 校验 → 解压 → 复核 |
+| 解读「这算成功吗」 | `verify_tag.sh` 给硬指标与 `status=PASS/FAIL`，退出码同步 |
+| 记录这次干了什么 | 自动写 `$DSH_ARCHIVE_ROOT/logs/run-<时间>.log` |
+
+代价是**必须有人记得去跑**；收益是**跑的人不需要懂这套坑** —— 命令、判据、失败处置都在仓里。
 
 ## 这个仓解决什么问题
 
@@ -22,53 +38,66 @@
 
 本仓把这四条变成**默认行为**，而不是每次重新记一遍。
 
-## 快速开始
+## 快速开始（人工触发）
+
+**Windows：双击 `run.cmd`** —— 打开控制台跑完整条流水线，结束停住等你按键。
+
+**命令行：**
 
 ```bash
-# 0) 归档根必须显式给出（仓内不写死盘符，见 allin SPEC-001 铁律 5）
-export DSH_ARCHIVE_ROOT="/deepseek harness GitHub"   # 去符盘写法，实际值见各机事实源
+# 0) 只做一次：复制配置模板，改一行归档根（该文件已被 .gitignore 忽略）
+cp config/local.env.example config/local.env
+vi config/local.env          # DSH_ARCHIVE_ROOT="/d/deepseek harness GitHub"
 
-# 1) 只读检测：本地缺哪些 tag
-bash scripts/weekly_check.sh
+# 1) 看计划，不下载
+bash scripts/run.sh --dry-run
 
-# 2) 对每个新增 tag 走全流程（下载 → 校验 → 解压 → 硬指标复核）
-bash scripts/archive_one.sh dsh-v0.2.1-rc.5
+# 2) 正式跑：检测 → 下载 → 校验 → 解压 → 复核 → 汇总
+bash scripts/run.sh
 
-# 3) 只复核，不下载（对已归档的 tag 重跑判据）
-bash scripts/verify_tag.sh dsh-v0.2.1-rc.5
+# 3) 只修复/复核某个 tag（本地已有也重跑，幂等）
+bash scripts/run.sh --tag dsh-v0.2.1-rc.5
 ```
 
-`archive_one.sh` 结束时打印一行机器可读结果：
+结束时打印汇总表与每个 tag 的 `RESULT` 行：
 
 ```
+TAG                           ZIP_BYTES    TGZ_BYTES            ITEMS  BROKEN STATUS
+dsh-v0.2.1-rc.5                45743225     34818362   16339+14=16353       0 PASS
+
 RESULT tag=dsh-v0.2.1-rc.5 files=16339 symlinks=14 entries=16353 broken=0 status=PASS
 ```
+
+退出码：`0` 成功（含无新增）／`1` 有 tag 失败／`2` 用法或环境／`3` 检测失败（网络或 API）。
+每次运行的完整输出另存 `$DSH_ARCHIVE_ROOT/logs/run-<时间>.log`。
 
 ## 目录
 
 ```
-config/target.env        目标仓库 / 分页 / 归档根（环境变量优先，不写死盘符）
-scripts/lib.sh           共用工具：临时目录归一化（Windows 的 TMPDIR 是盘符形式，tar 不认）
+run.cmd                   Windows 双击入口（调 run.sh，结束后暂停）
+config/target.env        目标仓库 / 分页（环境变量优先，不写死盘符）
+config/local.env.example 本机私有配置模板（复制为 local.env；后者已被忽略）
+scripts/lib.sh           共用：临时目录归一化 + 配置加载（local.env → target.env）
+scripts/run.sh           一键入口：检测 → 下载 → 校验 → 解压 → 复核 → 汇总 + 日志
 scripts/dl_one.sh        单文件下载（codeload 直连优先 + 代理兜底 + 唯一临时名 + /tmp 副本校验）
 scripts/archive_one.sh   单 tag 全流程编排（zip 与 tar.gz 串行，判据委托 verify_tag.sh）
-scripts/weekly_check.sh  只读检测：本地 tag 集 vs releases?per_page=N 差集
+scripts/check_new.sh     只读检测：本地 tag 集 vs releases?per_page=N 差集
 scripts/verify_tag.sh    硬指标唯一实现（条目数 / 文件数 / 符号链接 / 失效链接 / 归档完整性）
-docs/RUNBOOK.md          六步操作手册（含 Windows Git Bash 注意事项与报告格式）
-docs/LESSONS.md          踩坑台账（每条附日期与实证）
-automation/prompt.md     可直接粘回自动化平台的提示词（与现役任务同源）
+docs/RUNBOOK.md          人工运行手册（失败处置 + 手工等价命令）
+docs/LESSONS.md          踩坑台账（11 条，每条附日期与实证）
+automation/prompt.md     【可选】仍要接平台定时任务时的提示词（与手动入口同源）
 ```
 
-## 六步流程（与 `automation/prompt.md` 一一对应）
+## 一次运行的五步（`run.sh` 内部顺序）
 
-| 步 | 动作 | 命令 | 判据 |
+| 步 | 动作 | 落点 | 判据 |
 |---|---|---|---|
-| 0 | 清点本地已有 tag | `ls "$DSH_ARCHIVE_ROOT"/*-source.zip` | 文件名形如 `<TAG>-source.zip`，**tag 带仓库前缀**（如 `dsh-`） |
-| 1 | 拉远端 release 并求差集 | `bash scripts/weekly_check.sh` | 差集为空 ⇒ 「无新增」，到此结束 |
-| 2 | 逐 tag 下载 zip / tar.gz | `bash scripts/archive_one.sh <TAG>` | 串行；单个脚本内两个扩展名顺序执行 |
-| 3 | 落盘校验 | 脚本内 `verify_tag.sh` | **先 `cp` 到临时目录再校验**，目标盘上直接校验会假失败 |
-| 4 | 解压 | `unzip -q <TAG>-source.zip -d extracted` | 顶层目录名 `<repo>-<TAG>`，与既有目录命名一致 |
-| 5 | 硬指标复核 | `bash scripts/verify_tag.sh <TAG>` | 见下节 |
-| 6 | 汇报 | —— | 新增 tag / 文件字节数 / 复核数值 / 失败环节（如有） |
+| 0 | 预检：命令、归档根、可写性 | `run.sh` 开头 | 缺任何一项立刻退出（exit 2），不猜默认值 |
+| 1 | 检测新增 tag | `check_new.sh` | 差集为空 ⇒ 「无新增」，**不做任何下载**；API 失败 ⇒ exit 3 |
+| 2 | 逐 tag 下载 zip / tar.gz | `archive_one.sh` → `dl_one.sh` | **串行**，一个 tag 内两种扩展名顺序执行 |
+| 3 | 落盘校验 | `dl_one.sh` 内建 | **先 `cp` 到临时目录再 `unzip -tq` / `tar -tzf`**，目标盘上直接校验会假失败 |
+| 4 | 解压 | `archive_one.sh` | `unzip -q <TAG>-source.zip -d extracted`，顶层目录 `<repo>-<TAG>` |
+| 5 | 硬指标复核 + 汇总 | `verify_tag.sh` → `run.sh` | 见下节；`run.sh` 输出表格与 `RESULT` 行，并写日志 |
 
 ## 校验判据（唯一实现：`scripts/verify_tag.sh`）
 

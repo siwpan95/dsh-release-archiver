@@ -4,7 +4,7 @@
 # 用法:
 #   bash scripts/verify_tag.sh <TAG> [归档根]
 #
-# 判据（唯一实现，四个调用方共用：人工复核 / archive_one.sh / 周检收尾 / 事后审计）:
+# 判据（唯一实现，四个调用方共用：人工复核 / run.sh / archive_one.sh / 事后审计）:
 #   A. zip 与 tar.gz 在**临时目录副本**上分别通过 `unzip -tq` 与 `tar -tzf`；
 #   B. 解压目录内 `find -type f` + `find -type l` == zip 非目录条目数；
 #   C. 解压目录内失效符号链接数 == 0。
@@ -19,8 +19,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh
 . "$HERE/lib.sh"
-# shellcheck source=../config/target.env
-. "$HERE/../config/target.env"
+load_env "$HERE"
 
 TAG="${1:-}"
 ROOT="${2:-${DSH_ARCHIVE_ROOT:-}}"
