@@ -78,7 +78,8 @@ dsh-v0.2.1-rc.5                45743225     34818362   16339+14=16353       0 PA
 | 合计条目 | `find -type f` + `find -type l` == `unzip -Z1 … \| grep -v '/$' \| wc -l` |
 | 失效链接 | `find -type l ! -exec test -e {} \;` == 0 |
 
-> `symlink error: File exists` 是 Git Bash 的**良性** stderr，不参与判定。
+> 解压统一走 **tar.gz**（`tar -xzf`）：zip 的符号链接条目 `unzip` 在 Windows 上无法物化，
+> 解压树会静默缺条目 —— `symlink error: File exists` 只是历史 zip 路径的良性 stderr，现路径不产生。
 
 ---
 
@@ -92,6 +93,7 @@ dsh-v0.2.1-rc.5                45743225     34818362   16339+14=16353       0 PA
 | `GIVEUP zip` / `GIVEUP tar.gz` | 下载 | codeload 与镜像全失败 ⇒ 检查网络后重跑同一条命令 |
 | `条目数不符` | 复核 | 多为解压中断或 zip 截断：删 `extracted/<repo>-<TAG>` 重跑 `--tag <TAG>` |
 | `存在失效符号链接` | 复核 | 目标盘不支持符号链接 ⇒ 换解压方式，**勿当成功** |
+| `条目数不符` 且差值恒为 N | 复核 | 旧版 zip 解压路径的符号链接未物化（LESSONS 第 12 条）⇒ 升级后重跑 |
 | 想重做某个 tag | 任意 | `bash scripts/run.sh --tag <TAG> --yes`（幂等，会重下/重解压/重验） |
 
 ---
@@ -102,7 +104,7 @@ dsh-v0.2.1-rc.5                45743225     34818362   16339+14=16353       0 PA
 bash scripts/check_new.sh                     # 只检测
 bash scripts/archive_one.sh <TAG>             # 单 tag 全流程
 bash scripts/verify_tag.sh <TAG>              # 只复核
-cd "$DSH_ARCHIVE_ROOT" && unzip -q <TAG>-source.zip -d extracted   # 手工解压
+cd "$DSH_ARCHIVE_ROOT" && tar -xzf <TAG>-source.tar.gz -C extracted   # 手工解压（勿用 unzip：跨机 symlink 缺失）
 ```
 
 日常只需 `run.sh` —— 上面的命令是它的内部步骤，用于定位问题。
@@ -122,4 +124,5 @@ cd "$DSH_ARCHIVE_ROOT" && unzip -q <TAG>-source.zip -d extracted   # 手工解�
 1. **`tar` 不认 `C:/...`**：会把 `C:` 当远程主机，报 `Cannot connect to C: resolve failed`。
    用 `/c/...` 形式；脚本内统一经 `lib.sh::tmp_root()` 归一化。
 2. **目标盘上直接校验会假失败**：`cp` 到临时目录再验（脚本已内置）。
-3. **`unzip` 的 `symlink error: File exists` 是良性**：Git Bash 重复建链时报，不参与判定。
+3. **解压勿用 `unzip`**：其符号链接条目在 Windows 上无法物化（静默缺 N 个条目，复核 FAIL 且差值恒为 N）——
+   解压一律 `tar -xzf`（真链或内容拷贝，条目恒齐）；`symlink error: File exists` 属历史 zip 路径现象。

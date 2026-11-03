@@ -42,14 +42,21 @@ if [ -d "$DIR" ]; then
   echo "SKIP 已解压: $DIR"
 else
   ERRF="$(tmp_root)/_dshu.$$.err"
-  ( cd "$ROOT" && unzip -q "${TAG}-source.zip" -d extracted 2>"$ERRF" )
+  # v1.2.0 起改用 tar.gz 解压（根治跨机 symlink 缺失，见 docs/LESSONS.md 第 12 条）：
+  #   - zip 里的符号链接条目，Info-ZIP unzip 在 Windows 上**无法物化**（每条报
+  #     `symlink error: File exists` 后静默跳过）⇒ 解压树必缺 N 个条目，硬指标复核
+  #     在「unzip 无 symlink 权限」的机器上**必然 FAIL** —— 权限只是表象，换机器照样复发；
+  #   - MSYS `tar` 对同一批链接条目能确定性地物化（建真链；真链建不出时按运行时
+  #     约定退化为内容拷贝）⇒ 无论哪台机器、什么权限，每个条目都被落到盘上，
+  #     `文件数 + 链接数 == zip 条目数` 恒可满足；
+  #   - zip 仍下载并做完整性校验（verify A）+ 充当条目数基准清单（verify B），
+  #     只是**不再用它解压**。两份归档由 GitHub 从同一 commit 生成，成员清单已实测一致。
+  ( cd "$ROOT" && tar -xzf "${TAG}-source.tar.gz" -C extracted 2>"$ERRF" )
   rc=$?
-  # symlink error 属已知良性现象：只计数、不判定（见 docs/LESSONS.md 第 4 条）
-  if [ -f "$ERRF" ]; then
-    n=$(grep -c 'symlink error' "$ERRF" 2>/dev/null || true)
-    echo "INFO unzip stderr 行数=$(wc -l < "$ERRF" | tr -d ' ')，其中 symlink error=${n:-0}（良性，不参与判定）"
+  if [ -f "$ERRF" ] && [ -s "$ERRF" ]; then
+    echo "INFO tar stderr 行数=$(wc -l < "$ERRF" | tr -d ' ')（正常应为 0；非 0 请对照 docs/LESSONS.md 第 12 条处置）"
   fi
-  [ "$rc" = "0" ] || { echo "RESULT tag=${TAG} status=FAIL stage=unzip rc=${rc}"; exit 1; }
+  [ "$rc" = "0" ] || { echo "RESULT tag=${TAG} status=FAIL stage=tar-extract rc=${rc}"; exit 1; }
 fi
 
 echo "== [4/4] 硬指标复核 =="

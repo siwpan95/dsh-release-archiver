@@ -38,7 +38,8 @@
 1. 校验**不能在目标盘上做** —— 在 `D:`/`G:` 上跑 `tar -tzf` 会把完好文件判成损坏；
 2. 下载**不能并行** —— 并发后台任务会触发 `fork: Permission denied`，把整条重试链打断；
 3. `tar` **不认 `C:/...` 形式** —— 会当成远程主机并报 `Cannot connect to C: resolve failed`；
-4. 解压**符号链接的 stderr 是良性的** —— `symlink error: File exists` 不代表失败，判据要看硬指标。
+4. 解压**不能走 zip** —— `unzip` 在 Windows 上无法物化符号链接条目（静默缺 N 个条目，复核必然 FAIL），
+   解压改走 tar.gz（判据不变，见 `docs/LESSONS.md` 第 12 条）。
 
 本仓把这四条变成**默认行为**，而不是每次重新记一遍。
 
@@ -100,7 +101,7 @@ automation/prompt.md     平台定时任务提示词（现役：每周一 00:00 
 | 1 | 检测新增 tag | `check_new.sh` | 差集为空 ⇒ 「无新增」，**不做任何下载**；API 失败 ⇒ exit 3 |
 | 2 | 逐 tag 下载 zip / tar.gz | `archive_one.sh` → `dl_one.sh` | **串行**，一个 tag 内两种扩展名顺序执行 |
 | 3 | 落盘校验 | `dl_one.sh` 内建 | **先 `cp` 到临时目录再 `unzip -tq` / `tar -tzf`**，目标盘上直接校验会假失败 |
-| 4 | 解压 | `archive_one.sh` | `unzip -q <TAG>-source.zip -d extracted`，顶层目录 `<repo>-<TAG>` |
+| 4 | 解压 | `archive_one.sh` | **`tar -xzf <TAG>-source.tar.gz -C extracted`**（v1.2.0 根治跨机 symlink 缺失），顶层目录 `<repo>-<TAG>` |
 | 5 | 硬指标复核 + 汇总 | `verify_tag.sh` → `run.sh` | 见下节；`run.sh` 输出表格与 `RESULT` 行，并写日志 |
 
 ## 校验判据（唯一实现：`scripts/verify_tag.sh`）

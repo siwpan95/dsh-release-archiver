@@ -12,8 +12,13 @@
 # 为什么必须在副本上校验：在本机目标盘（D:/G:）直接跑 tar/unzip 会不可靠地报假失败，
 # 见 docs/LESSONS.md 第 1 条。
 #
-# 已知良性现象：Git Bash 的 unzip 建符号链接时会打印 `symlink error: File exists`，
-# 该行**不参与判定** —— 只看 A/B/C 三条。
+# 解压侧约定（v1.2.0 起）：解压统一由 archive_one.sh 用 **tar.gz** 完成 —— zip 里的
+# 符号链接条目，Info-ZIP unzip 在 Windows 上无法物化（静默缺条目 ⇒ B 必然 FAIL），
+# tar 则能确定性物化（真链或内容拷贝），见 docs/LESSONS.md 第 12 条。
+# zip 在此仍承担两个角色：A 的完整性校验对象 + B 的条目数基准清单。
+#
+# 历史现象（v1.1.x，仅 zip 解压路径）：Git Bash 的 unzip 建符号链接时打印
+# `symlink error: File exists`，该行不参与判定 —— 只看 A/B/C 三条。
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
